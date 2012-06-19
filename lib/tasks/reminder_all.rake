@@ -52,14 +52,22 @@ class Reminder_all < Mailer
     project = options[:project] ? Project.find(options[:project]) : nil
     tracker = options[:tracker] ? Tracker.find(options[:tracker]) : nil
 
-    s = ARCondition.new ["#{IssueStatus.table_name}.is_closed = ? AND #{Issue.table_name}.due_date <= ?", false, days.day.from_now.to_date]
-    s << "#{Issue.table_name}.assigned_to_id IS NOT NULL"
-    s << "#{Project.table_name}.status = #{Project::STATUS_ACTIVE}"
-    s << "#{Issue.table_name}.project_id = #{project.id}" if project
-    s << "#{Issue.table_name}.tracker_id = #{tracker.id}" if tracker
+    conditions = [""]
+    conditions[0] << "#{IssueStatus.table_name}.is_closed = ? AND #{Issue.table_name}.due_date <= ? AND "
+    conditions << false
+    conditions << days.day.from_now.to_date
+    if project
+        conditions[0] << "#{Issue.table_name}.project_id = #{project.id} AND "
+    end
+    if tracker
+        conditions[0] << "#{Issue.table_name}.tracker_id = #{tracker.id} AND "
+    end
+    conditions[0] << "#{Issue.table_name}.assigned_to_id IS NOT NULL AND "
+    conditions[0] << "#{Project.table_name}.status = #{Project::STATUS_ACTIVE}"
+
     over_due = Array.new
     issues_by_assignee = Issue.find(:all, :include => [:status, :assigned_to, :project, :tracker],
-                                          :conditions => s.conditions
+                                          :conditions => conditions
                                     ).group_by(&:assigned_to)
     issues_by_assignee.each do |assignee, issues|
       found=0
@@ -73,13 +81,21 @@ class Reminder_all < Mailer
 	over_due<<[assignee, "assignee", issues]
       end
     end
-    s = ARCondition.new ["#{IssueStatus.table_name}.is_closed = ? AND #{Issue.table_name}.due_date <= ?", false, days.day.from_now.to_date]
-    s << "#{Project.table_name}.status = #{Project::STATUS_ACTIVE}"
-    s << "#{Issue.table_name}.project_id = #{project.id}" if project
-    s << "#{Issue.table_name}.tracker_id = #{tracker.id}" if tracker
+
+    conditions = [""]
+    conditions[0] << "#{IssueStatus.table_name}.is_closed = ? AND #{Issue.table_name}.due_date <= ? AND "
+    conditions << false
+    conditions << days.day.from_now.to_date
+    if project
+        conditions[0] << "#{Issue.table_name}.project_id = #{project.id} AND "
+    end
+    if tracker
+        conditions[0] << "#{Issue.table_name}.tracker_id = #{tracker.id} AND "
+    end
+    conditions[0] << "#{Project.table_name}.status = #{Project::STATUS_ACTIVE}"
 
     issues_by = Issue.find(:all, :include => [:status, :author, :project, :watchers , :tracker],
-                                          :conditions => s.conditions
+                                          :conditions => conditions
                                     )
     issues_by.group_by(&:author).each do |author, issues|
       found=0
